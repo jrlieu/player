@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>note · music player</title>
-    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIm5vdGUgbXVzaWMgcGxheWVyIiwKICAic2hvcnRfbmFtZSI6ICJub3RlIiwKICAiZGVzY3JpcHRpb24iOiAiY2xlYW4gbXVzaWMgcGxheWVyIHdpdGggcGxheWxpc3RzIiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiMxMjEyMTIiLAogICJ0aGVtZV9jb2xvciI6ICIjMjIyMjIyIiwKICAiaWNvbnMiOiBbCiAgICB7CiAgICAgICJzcmMiOiAiZGF0YTppbWFnZS9zdmcreG1sLDxzdmcgeG1sbnM9J2h0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnJyB2aWV3Qm94PScwIDAgNjQgNjQnPjxyZWN0IHdpZHRoPSc2NCcgaGVpZ2h0PSc2NCcgZmlsbD0nIzI3Mjc0NScvPjx0ZXh0IHg9JzE2JyB5PSc0NicgZm9udC1mYW1pbHk9J3NhbnMtc2VyaWYnIGZvbnQtc2l6ZT0nMzInIGZpbGw9JyNmZmYnPuKbnDwvdGV4dD48L3N2Zz4iLAogICAgICAic2l6ZXMiOiAiNjR4NjQiLAogICAgICAidHlwZSI6ICJpbWFnZS9zdmcreG1sIgogICAgfQogIF0KfQ==" />
+   <link rel="manifest" href="manifest.json">    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         * {
@@ -975,6 +975,34 @@
     </div>
 
     <script>
+(function() {
+    // ============================================
+    // 1. SERVICE WORKER (MUST BE FIRST!)
+    // ============================================
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js')
+            .then(() => console.log('✅ Service Worker registered'))
+            .catch(err => console.log('❌ Service Worker registration failed:', err));
+    }
+
+    // ============================================
+    // 2. INSTALL PROMPT HANDLER
+    // ============================================
+    let deferredPrompt;
+    
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        console.log('📱 App can be installed!');
+        // Show install button if you want
+    });
+
+    // ============================================
+    // 3. REST OF YOUR CODE (everything else)
+    // ============================================
+    const DB_NAME = 'NoteMusicPlayerDB';
+    // ... rest of your code
+    
         (function() {
             const DB_NAME = 'NoteMusicPlayerDB';
             const STORE_NAME = 'songs';
@@ -2049,10 +2077,6 @@
             init();
         })();
     </script>
-<script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
-}
-</script>
+
 </body>
 </html>
