@@ -1,0 +1,23 @@
+{
+  "name": "Note Music Player",
+  "short_name": "Note Player",
+  "description": "Clean music player with playlists",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#1db954",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='40' fill='%231db954'/%3E%3Ccircle cx='96' cy='96' r='70' fill='%23121212'/%3E%3Ctext x='66' y='125' font-family='Arial' font-size='80' fill='%231db954'%3E%E2%99%A9%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%231db954'/%3E%3Ccircle cx='256' cy='256' r='180' fill='%23121212'/%3E%3Ctext x='175' y='330' font-family='Arial' font-size='210' fill='%231db954'%3E%E2%99%A9%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
