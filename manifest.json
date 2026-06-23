@@ -2,7 +2,7 @@
   "name": "Note Music Player",
   "short_name": "Note Player",
   "description": "Clean music player with playlists",
-  "start_url": "/",
+  "start_url": "/player/",
   "display": "standalone",
   "background_color": "#121212",
   "theme_color": "#1db954",
