@@ -205,7 +205,7 @@
         display: none;
     }
     
-    /* Search Bar - Below header, hidden by default */
+    /* Search Bar - Below header */
     .search-container {
         display: none;
         align-items: center;
@@ -232,7 +232,7 @@
     }
     
     .search-container:focus-within {
-        border-color: #007aff;
+        border-color: ;
         background: #ffffff;
     }
     
@@ -586,7 +586,7 @@
     
     .queue-panel {
         background: #ffffff;
-        border-radius: 20px 20px 0 0;
+  
         width: 100%;
         max-height: 70vh;
         padding: 20px 24px 30px;
@@ -643,10 +643,20 @@
         padding: 12px 0;
         border-bottom: 1px solid #f0f0f2;
         position: relative;
+        cursor: pointer;
+        transition: 0.1s;
     }
     
     .queue-list li:last-child {
         border-bottom: none;
+    }
+    
+    .queue-list li:hover {
+        background: #f5f5f7;
+        margin: 0 -12px;
+        padding-left: 12px;
+        padding-right: 12px;
+        border-radius: 8px;
     }
     
     .queue-list li .queue-index {
@@ -683,7 +693,7 @@
     }
     
     .queue-list li.active-queue {
-        background: #f5f5f7;
+        background: #e5e5ea;
         border-radius: 8px;
         padding-left: 12px;
         padding-right: 12px;
@@ -1174,29 +1184,22 @@
     </div>
 
 <script>
-// ============================================
-// 1. SERVICE WORKER (MUST BE FIRST!)
-// ============================================
+// SERVICE WORKER
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js')
         .then(() => console.log('✅ Service Worker registered'))
         .catch(err => console.log('❌ Service Worker registration failed:', err));
 }
 
-// ============================================
-// 2. INSTALL PROMPT HANDLER
-// ============================================
+// INSTALL PROMPT
 let deferredPrompt;
-
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
     console.log('📱 App can be installed!');
 });
 
-// ============================================
-// 3. APP CODE
-// ============================================
+// APP CODE
 (function() {
     const DB_NAME = 'NoteMusicPlayerDB';
     const STORE_NAME = 'songs';
@@ -1229,11 +1232,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
     let clickTimeout = null;
     let isSearchOpen = false;
     
-    // Queue - ONLY songs manually added
+    // QUEUE - SIMPLE: just a list of songs to play next
     let queue = [];
-    let queueIndex = 0;
-    let isQueueMode = false;
 
+    // DOM REFS
     const songListEl = document.getElementById('songList');
     const playBtn = document.getElementById('playBtn');
     const prevBtn = document.getElementById('prevBtn');
@@ -1281,40 +1283,27 @@ window.addEventListener('beforeinstallprompt', (e) => {
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: songName || 'note music player',
-                artist: 'note player',
+                artist: 'Now Playing',
                 album: currentPlaylist === 'home' ? 'Home' : currentPlaylist
             });
-            
             navigator.mediaSession.setActionHandler('play', () => {
                 audio.play();
                 updatePlayButton(true);
             });
-            
             navigator.mediaSession.setActionHandler('pause', () => {
                 audio.pause();
                 updatePlayButton(false);
             });
-            
             navigator.mediaSession.setActionHandler('previoustrack', () => {
-                const songs = getCurrentDisplaySongs();
+                const songs = getDisplaySongs();
                 if (songs.length > 0) {
-                    const prevIdx = getPrevSongIndex();
-                    if (prevIdx >= 0) {
-                        playSongAtIndex(prevIdx);
-                    }
+                    const prevIdx = (currentIndex - 1 + songs.length) % songs.length;
+                    playSongAtIndex(prevIdx);
                 }
             });
-            
             navigator.mediaSession.setActionHandler('nexttrack', () => {
-                const songs = getCurrentDisplaySongs();
-                if (songs.length > 0) {
-                    const nextIdx = getNextSongIndex();
-                    if (nextIdx >= 0) {
-                        playSongAtIndex(nextIdx);
-                    }
-                }
+                playNext();
             });
-            
             navigator.mediaSession.playbackState = isPlayingState ? 'playing' : 'paused';
         }
     }
@@ -1326,7 +1315,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
             dialogMessage.textContent = message;
             dialogType = type;
             dialogResolve = resolve;
-            
             if (inputPlaceholder) {
                 dialogInput.style.display = 'block';
                 dialogInput.placeholder = inputPlaceholder;
@@ -1334,7 +1322,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
             } else {
                 dialogInput.style.display = 'none';
             }
-            
             if (type === 'confirm') {
                 dialogConfirm.className = 'dialog-btn confirm';
                 dialogConfirm.textContent = 'Confirm';
@@ -1345,7 +1332,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
                 dialogConfirm.className = 'dialog-btn confirm';
                 dialogConfirm.textContent = 'OK';
             }
-            
             customOverlay.classList.add('show');
         });
     }
@@ -1361,7 +1347,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
     dialogCancel.addEventListener('click', function() {
         closeDialog(false);
     });
-
     dialogConfirm.addEventListener('click', function() {
         if (dialogInput.style.display !== 'none') {
             closeDialog(true, dialogInput.value.trim());
@@ -1369,13 +1354,11 @@ window.addEventListener('beforeinstallprompt', (e) => {
             closeDialog(true);
         }
     });
-
     customOverlay.addEventListener('click', function(e) {
         if (e.target === this) {
             closeDialog(false);
         }
     });
-
     dialogInput.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             dialogConfirm.click();
@@ -1504,17 +1487,13 @@ window.addEventListener('beforeinstallprompt', (e) => {
         try {
             const songs = await getAllSongs();
             const savedPlaylists = await getPlaylistsFromDB();
-            
             allSongs = songs.map(s => ({ id: s.id, name: s.name, data: s.data }));
-            
             playlists = { 'home': allSongs.slice() };
-            
             savedPlaylists.forEach(p => {
                 const songIds = p.songs || [];
                 const songList = songIds.map(id => allSongs.find(s => s.id === id)).filter(s => s);
                 playlists[p.name] = songList;
             });
-            
             return true;
         } catch (e) {
             console.warn('Failed to load data:', e);
@@ -1586,7 +1565,11 @@ window.addEventListener('beforeinstallprompt', (e) => {
         return URL.createObjectURL(blob);
     }
 
-    // ----- Search -----
+    function getCurrentSongs() {
+        return playlists[currentPlaylist] || [];
+    }
+
+    // ----- SEARCH -----
     function performSearch(query) {
         searchQuery = query.toLowerCase().trim();
         if (searchQuery === '') {
@@ -1611,32 +1594,27 @@ window.addEventListener('beforeinstallprompt', (e) => {
     searchInput.addEventListener('input', function(e) {
         performSearch(this.value);
     });
-
     clearSearch.addEventListener('click', clearSearchInput);
 
-    function getCurrentDisplaySongs() {
-        // If in queue mode, return queue
-        if (isQueueMode && queue.length > 0) {
-            return queue;
-        }
-        // Otherwise return playlist
+    function getDisplaySongs() {
         if (searchQuery !== '') {
             return filteredSongs;
         }
         return getCurrentSongs();
     }
 
-    // ----- Queue -----
+    // ============================================
+    // QUEUE FUNCTIONS - SIMPLE AND WORKING
+    // ============================================
     function renderQueue() {
         if (queue.length === 0) {
             queueList.innerHTML = `<li class="queue-empty">No songs in queue</li>`;
             return;
         }
-        
         let html = '';
         queue.forEach((song, idx) => {
-            const isActive = idx === queueIndex && isQueueMode;
-            html += `<li class="${isActive ? 'active-queue' : ''}">
+            const isActive = idx === 0;
+            html += `<li class="${isActive ? 'active-queue' : ''}" data-queue-index="${idx}">
                 <span class="queue-index">${idx + 1}</span>
                 <span class="queue-name">${escapeHtml(song.name)}</span>
                 <button class="queue-remove" data-queue-index="${idx}"><i class="fas fa-minus"></i></button>
@@ -1644,76 +1622,49 @@ window.addEventListener('beforeinstallprompt', (e) => {
         });
         queueList.innerHTML = html;
         
+        // Click to play from queue
+        queueList.querySelectorAll('li[data-queue-index]').forEach(li => {
+            li.addEventListener('click', function(e) {
+                if (e.target.closest('.queue-remove')) return;
+                const idx = parseInt(this.dataset.queueIndex);
+                if (!isNaN(idx) && idx >= 0 && idx < queue.length) {
+                    // Remove all songs before this one
+                    const songToPlay = queue[idx];
+                    queue.splice(0, idx);
+                    // Play this song
+                    const allSongsList = getCurrentSongs();
+                    const actualSong = allSongsList.find(s => s.id === songToPlay.id);
+                    if (actualSong) {
+                        currentIndex = allSongsList.indexOf(actualSong);
+                        loadSong(currentIndex);
+                        audio.play().catch(() => {});
+                        updatePlayButton(true);
+                        renderQueue();
+                        renderPlaylist();
+                    }
+                }
+            });
+        });
+        
         queueList.querySelectorAll('.queue-remove').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 const idx = parseInt(this.dataset.queueIndex);
-                removeFromQueue(idx);
+                queue.splice(idx, 1);
+                renderQueue();
+                renderPlaylist();
             });
         });
     }
 
-    function removeFromQueue(index) {
-        if (index < 0 || index >= queue.length) return;
-        
-        queue.splice(index, 1);
-        if (index < queueIndex) {
-            queueIndex--;
-        } else if (index === queueIndex && queue.length > 0) {
-            if (queueIndex >= queue.length) queueIndex = queue.length - 1;
-            // Play next song in queue
-            if (isQueueMode && queue.length > 0) {
-                playQueueSong(queueIndex);
-            }
-        }
-        
-        if (queue.length === 0) {
-            isQueueMode = false;
-            queueIndex = 0;
-            // Go back to playlist
-            if (getCurrentSongs().length > 0) {
-                loadSong(currentIndex);
-            }
-        }
-        
-        renderQueue();
-        renderPlaylist();
-    }
-
-    function playQueueSong(index) {
-        if (index < 0 || index >= queue.length) return;
-        queueIndex = index;
-        isQueueMode = true;
-        const song = queue[queueIndex];
-        const songs = getCurrentSongs();
-        const actualIndex = songs.findIndex(s => s.id === song.id);
-        if (actualIndex >= 0) {
-            currentIndex = actualIndex;
-            loadSong(currentIndex);
-            audio.play().catch(() => {});
-            updatePlayButton(true);
-        }
-        renderQueue();
-        renderPlaylist();
-    }
-
-    // ----- Add song to queue (inserts right after current song) -----
     function addToQueue(song) {
-        // Remove from queue if already exists
+        // Remove if already in queue
         const existingIdx = queue.findIndex(s => s.id === song.id);
         if (existingIdx >= 0) {
             queue.splice(existingIdx, 1);
-            if (existingIdx < queueIndex) queueIndex--;
         }
-        
-        // Insert right after the current song (queueIndex + 1)
-        const insertPosition = queueIndex + 1;
-        if (insertPosition >= queue.length) {
-            queue.push(song);
-        } else {
-            queue.splice(insertPosition, 0, song);
-        }
-        
+        // Add to the end of the queue
+        queue.push(song);
         renderQueue();
         showToast(`Added "${song.name}" to queue`);
     }
@@ -1743,38 +1694,30 @@ window.addEventListener('beforeinstallprompt', (e) => {
         }
     });
 
-    // ----- Swipe to queue -----
+    // ----- SWIPE TO QUEUE -----
     function setupSwipeHandling() {
-        let startX = 0;
-        let startY = 0;
-        let isSwiping = false;
-        let currentItem = null;
-        let currentIndex = -1;
+        let startX = 0, startY = 0, isSwiping = false, currentItem = null, currentIdx = -1;
         
         songListEl.addEventListener('touchstart', function(e) {
             const li = e.target.closest('li');
             if (!li || li.classList.contains('empty-playlist')) return;
             if (e.target.closest('.song-btn')) return;
-            
             const touch = e.touches[0];
             startX = touch.clientX;
             startY = touch.clientY;
             isSwiping = false;
             currentItem = li;
-            currentIndex = parseInt(li.dataset.index);
+            currentIdx = parseInt(li.dataset.index);
         }, { passive: true });
         
         songListEl.addEventListener('touchmove', function(e) {
             if (!currentItem) return;
-            
             const touch = e.touches[0];
             const deltaX = touch.clientX - startX;
             const deltaY = touch.clientY - startY;
-            
             if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 20) {
                 isSwiping = true;
                 e.preventDefault();
-                
                 if (deltaX > 20) {
                     currentItem.style.transform = `translateX(${Math.min(deltaX, 80)}px)`;
                 } else if (deltaX < -20) {
@@ -1784,54 +1727,32 @@ window.addEventListener('beforeinstallprompt', (e) => {
         }, { passive: false });
         
         songListEl.addEventListener('touchend', function(e) {
-            if (!currentItem || !isSwiping) {
-                currentItem = null;
-                return;
-            }
-            
+            if (!currentItem || !isSwiping) { currentItem = null; return; }
             const transform = currentItem.style.transform;
             const translateX = parseInt(transform.replace(/[^0-9-]/g, '')) || 0;
             
             if (translateX > 40) {
-                // Swipe right - add to queue
-                const songs = getCurrentDisplaySongs();
-                if (currentIndex >= 0 && currentIndex < songs.length) {
-                    const song = songs[currentIndex];
-                    addToQueue(song);
+                const songs = getDisplaySongs();
+                if (currentIdx >= 0 && currentIdx < songs.length) {
+                    addToQueue(songs[currentIdx]);
                 }
-                currentItem.style.transform = '';
-                currentItem.style.transition = 'transform 0.2s';
-                setTimeout(() => {
-                    currentItem.style.transition = '';
-                }, 200);
             } else if (translateX < -40) {
-                // Swipe left - remove from playlist
-                if (currentIndex >= 0) {
-                    removeSongFromPlaylist(currentIndex);
+                if (currentIdx >= 0) {
+                    removeSongFromPlaylist(currentIdx);
                 }
-                currentItem.style.transform = '';
-                currentItem.style.transition = 'transform 0.2s';
-                setTimeout(() => {
-                    currentItem.style.transition = '';
-                }, 200);
-            } else {
-                currentItem.style.transform = '';
-                currentItem.style.transition = 'transform 0.2s';
-                setTimeout(() => {
-                    currentItem.style.transition = '';
-                }, 200);
             }
-            
+            currentItem.style.transform = '';
+            currentItem.style.transition = 'transform 0.2s';
+            setTimeout(() => { currentItem.style.transition = ''; }, 200);
             currentItem = null;
             isSwiping = false;
         }, { passive: true });
     }
 
-    // ----- Toast -----
+    // ----- TOAST -----
     function showToast(message) {
         const existing = document.querySelector('.toast-message');
         if (existing) existing.remove();
-        
         const toast = document.createElement('div');
         toast.className = 'toast-message';
         toast.textContent = message;
@@ -1855,44 +1776,40 @@ window.addEventListener('beforeinstallprompt', (e) => {
             textAlign: 'center'
         });
         document.body.appendChild(toast);
-        
-        requestAnimationFrame(() => {
-            toast.style.opacity = '1';
-        });
-        
+        requestAnimationFrame(() => { toast.style.opacity = '1'; });
         setTimeout(() => {
             toast.style.opacity = '0';
             setTimeout(() => toast.remove(), 300);
         }, 2000);
     }
 
-    // ----- Get songs -----
-    function getCurrentSongs() {
-        return playlists[currentPlaylist] || [];
-    }
-
-    function getNextSongIndex() {
-        // If in queue mode and queue has songs
-        if (isQueueMode && queue.length > 0) {
-            const nextIdx = queueIndex + 1;
-            if (nextIdx < queue.length) {
-                return -2; // Special flag for queue
-            } else {
-                // Queue ended - go back to playlist
-                isQueueMode = false;
-                queue = [];
-                queueIndex = 0;
+    // ============================================
+    // CORE PLAYBACK - THE SIMPLE VERSION
+    // ============================================
+    
+    // THE MAIN FUNCTION: play the next song
+    function playNext() {
+        // STEP 1: If there are songs in the queue, play the first one
+        if (queue.length > 0) {
+            const nextSong = queue.shift(); // Remove and get first song
+            const allSongsList = getCurrentSongs();
+            const actualSong = allSongsList.find(s => s.id === nextSong.id);
+            if (actualSong) {
+                currentIndex = allSongsList.indexOf(actualSong);
+                loadSong(currentIndex);
+                audio.play().catch(() => {});
+                updatePlayButton(true);
                 renderQueue();
-                if (getCurrentSongs().length > 0) {
-                    return currentIndex; // Stay on current song, but switch back to playlist mode
-                }
-                return -1;
+                renderPlaylist();
+                return;
             }
         }
         
-        const songs = getCurrentDisplaySongs();
-        if (songs.length === 0) return -1;
+        // STEP 2: No queue - play from regular playlist
+        const songs = getDisplaySongs();
+        if (songs.length === 0) return;
         
+        let nextIdx;
         if (isShuffled) {
             if (shuffleQueue.length === 0) {
                 shuffleQueue = songs.map((_, i) => i);
@@ -1904,48 +1821,50 @@ window.addEventListener('beforeinstallprompt', (e) => {
             } else {
                 shuffleIndex = (shuffleIndex + 1) % shuffleQueue.length;
             }
-            return shuffleQueue[shuffleIndex];
+            nextIdx = shuffleQueue[shuffleIndex];
         } else {
-            return (currentIndex + 1) % songs.length;
+            nextIdx = (currentIndex + 1) % songs.length;
+        }
+        
+        if (nextIdx >= 0 && nextIdx < songs.length) {
+            currentIndex = nextIdx;
+            loadSong(currentIndex);
+            audio.play().catch(() => {});
+            updatePlayButton(true);
         }
     }
 
-    function getPrevSongIndex() {
-        const songs = getCurrentDisplaySongs();
-        if (songs.length === 0) return -1;
+    function playPrev() {
+        const songs = getDisplaySongs();
+        if (songs.length === 0) return;
         
+        // If there's a queue, going previous doesn't affect it (like Spotify)
+        let prevIdx;
         if (isShuffled) {
-            if (shuffleQueue.length === 0) return currentIndex;
-            shuffleIndex = (shuffleIndex - 1 + shuffleQueue.length) % shuffleQueue.length;
-            return shuffleQueue[shuffleIndex];
+            if (shuffleQueue.length === 0) {
+                shuffleQueue = songs.map((_, i) => i);
+                for (let i = shuffleQueue.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffleQueue[i], shuffleQueue[j]] = [shuffleQueue[j], shuffleQueue[i]];
+                }
+                shuffleIndex = 0;
+            } else {
+                shuffleIndex = (shuffleIndex - 1 + shuffleQueue.length) % shuffleQueue.length;
+            }
+            prevIdx = shuffleQueue[shuffleIndex];
         } else {
-            return (currentIndex - 1 + songs.length) % songs.length;
+            prevIdx = (currentIndex - 1 + songs.length) % songs.length;
+        }
+        if (prevIdx >= 0 && prevIdx < songs.length) {
+            currentIndex = prevIdx;
+            loadSong(currentIndex);
+            audio.play().catch(() => {});
+            updatePlayButton(true);
         }
     }
 
     function playSongAtIndex(index) {
-        // Handle queue mode
-        if (isQueueMode && queue.length > 0) {
-            if (index === -2) {
-                // Play next queue song
-                const nextIdx = queueIndex + 1;
-                if (nextIdx < queue.length) {
-                    playQueueSong(nextIdx);
-                } else {
-                    // Queue ended
-                    isQueueMode = false;
-                    queue = [];
-                    queueIndex = 0;
-                    renderQueue();
-                    if (getCurrentSongs().length > 0) {
-                        loadSong(currentIndex);
-                    }
-                }
-                return;
-            }
-        }
-        
-        const songs = getCurrentDisplaySongs();
+        const songs = getDisplaySongs();
         if (index < 0 || index >= songs.length) return;
         currentIndex = index;
         loadSong(currentIndex);
@@ -1954,7 +1873,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     }
 
     function loadSong(index) {
-        const songs = getCurrentDisplaySongs();
+        const songs = getDisplaySongs();
         if (songs.length === 0) {
             audio.pause();
             audio.src = '';
@@ -1998,7 +1917,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     }
 
     function renderPlaylist() {
-        const songs = getCurrentDisplaySongs();
+        const songs = getDisplaySongs();
         if (songs.length === 0) {
             const msg = searchQuery !== '' ? 'No matching songs' : '🎵 add some music';
             songListEl.innerHTML = `<li class="empty-playlist">${msg}</li>`;
@@ -2007,9 +1926,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
         let html = '';
         songs.forEach((song, idx) => {
             const displayName = song.name || 'Untitled';
-            // Don't highlight any song in playlist when in queue mode
-            const isActive = !isQueueMode && ((idx === currentIndex && !searchQuery) || 
-                            (searchQuery !== '' && song.id === (getCurrentSongs()[currentIndex]?.id)));
+            const isActive = (idx === currentIndex && !searchQuery) || 
+                            (searchQuery !== '' && song.id === (getCurrentSongs()[currentIndex]?.id));
             html += `<li class="${isActive ? 'active' : ''}" data-index="${idx}" data-song-id="${song.id}">
                 <span class="song-icon"><i class="fas fa-music"></i></span>
                 <span class="song-name">${escapeHtml(displayName)}</span>
@@ -2037,7 +1955,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
         } else {
             icon.className = 'fas fa-play';
         }
-        
         if ('mediaSession' in navigator) {
             navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
         }
@@ -2078,9 +1995,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
     function updateDropdown() {
         playlistList.innerHTML = '';
-        
         const playlistNames = Object.keys(playlists).filter(name => name !== 'home');
-        
         playlistNames.forEach(name => {
             const div = document.createElement('div');
             div.className = `dropdown-item ${currentPlaylist === name ? 'active' : ''}`;
@@ -2093,15 +2008,12 @@ window.addEventListener('beforeinstallprompt', (e) => {
             });
             playlistList.appendChild(div);
         });
-        
         homeDropdownItem.classList.toggle('active', currentPlaylist === 'home');
-        
         if (currentPlaylist === 'home') {
             deletePlaylistBtn.style.display = 'none';
         } else {
             deletePlaylistBtn.style.display = 'flex';
         }
-        
         updateHeaderTitle();
     }
 
@@ -2116,10 +2028,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
         searchQuery = '';
         searchInput.value = '';
         clearSearch.classList.remove('visible');
-        // Clear queue when switching playlists
         queue = [];
-        queueIndex = 0;
-        isQueueMode = false;
         renderPlaylist();
         updateDropdown();
         if (songs.length > 0) {
@@ -2158,7 +2067,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
         const currentModeIndex = modes.indexOf(repeatMode);
         const nextModeIndex = (currentModeIndex + 1) % modes.length;
         repeatMode = modes[nextModeIndex];
-        
         repeatBtn.classList.remove('active', 'repeat-one');
         if (repeatMode === 'all') {
             repeatBtn.classList.add('active');
@@ -2170,12 +2078,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
     function startEditingTitle() {
         if (currentPlaylist === 'home') return;
         if (isEditingTitle) return;
-        
         isEditingTitle = true;
         headerTitle.classList.add('editing');
         headerTitle.contentEditable = true;
         headerTitle.focus();
-        
         const range = document.createRange();
         const textNode = headerTitle.childNodes[1];
         if (textNode) {
@@ -2191,19 +2097,14 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
     function finishEditingTitle() {
         if (!isEditingTitle) return;
-        
         const textContent = headerTitle.textContent.trim();
         let newName = textContent.replace(/♩/, '').trim();
-        
         if (newName && newName !== currentPlaylist && newName !== 'home' && newName !== 'note') {
             const oldName = currentPlaylist;
             const songs = playlists[oldName];
-            
             playlists[newName] = songs;
             delete playlists[oldName];
-            
             savePlaylistToStorage(newName, songs);
-            
             (async () => {
                 const existing = await getPlaylistsFromDB();
                 const found = existing.find(p => p.name === oldName);
@@ -2211,14 +2112,12 @@ window.addEventListener('beforeinstallprompt', (e) => {
                     await deletePlaylistFromDB(found.id);
                 }
             })();
-            
             currentPlaylist = newName;
             updateDropdown();
             renderPlaylist();
         } else {
             updateHeaderTitle();
         }
-        
         headerTitle.contentEditable = false;
         headerTitle.classList.remove('editing');
         isEditingTitle = false;
@@ -2229,24 +2128,19 @@ window.addEventListener('beforeinstallprompt', (e) => {
             await showDialog('Cannot Delete', 'The Home playlist cannot be deleted.', 'confirm');
             return;
         }
-        
         const result = await showDialog(
             'Delete Playlist',
             `Are you sure you want to delete the playlist "${currentPlaylist}"?\nThis will only remove the playlist, not the songs themselves.`,
             'danger'
         );
-        
         if (!result.confirmed) return;
-        
         try {
             const existing = await getPlaylistsFromDB();
             const found = existing.find(p => p.name === currentPlaylist);
             if (found) {
                 await deletePlaylistFromDB(found.id);
             }
-            
             delete playlists[currentPlaylist];
-            
             currentPlaylist = 'home';
             const songs = getCurrentSongs();
             currentIndex = 0;
@@ -2257,8 +2151,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
             searchInput.value = '';
             clearSearch.classList.remove('visible');
             queue = [];
-            queueIndex = 0;
-            isQueueMode = false;
             renderPlaylist();
             updateDropdown();
             if (songs.length > 0) {
@@ -2281,16 +2173,12 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
     function openSongMenu(index) {
         menuSongIndex = index;
-        const songs = getCurrentDisplaySongs();
+        const songs = getDisplaySongs();
         if (index < 0 || index >= songs.length) return;
-        
         const song = songs[index];
-        
         menuRemoveSong.innerHTML = `<i class="fas fa-trash-alt"></i> Remove "${escapeHtml(song.name)}" from playlist`;
-        
         menuPlaylistList.innerHTML = '';
         const playlistNames = Object.keys(playlists).filter(name => name !== 'home' && name !== currentPlaylist);
-        
         if (playlistNames.length === 0) {
             const div = document.createElement('div');
             div.style.padding = '12px 24px';
@@ -2316,7 +2204,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
                 menuPlaylistList.appendChild(div);
             });
         }
-        
         songMenuOverlay.classList.add('show');
     }
 
@@ -2328,47 +2215,37 @@ window.addEventListener('beforeinstallprompt', (e) => {
     function toggleSongInPlaylist(song, playlistName) {
         const playlist = playlists[playlistName];
         const existingIndex = playlist.findIndex(s => s.id === song.id);
-        
         if (existingIndex >= 0) {
             playlist.splice(existingIndex, 1);
         } else {
             playlist.push(song);
         }
-        
         savePlaylistToStorage(playlistName, playlist);
         updateDropdown();
     }
 
     async function removeSongFromPlaylist(index) {
-        const songs = getCurrentDisplaySongs();
+        const songs = getDisplaySongs();
         if (index < 0 || index >= songs.length) return;
-        
         const song = songs[index];
-        
         let actualIndex = index;
         if (searchQuery !== '') {
             const realSongs = getCurrentSongs();
             actualIndex = realSongs.findIndex(s => s.id === song.id);
             if (actualIndex === -1) return;
         }
-        
         const result = await showDialog(
             'Remove from Playlist',
             `Are you sure you want to remove "${song.name}" from this playlist?`,
             'danger'
         );
-        
         if (!result.confirmed) return;
-        
         playlists[currentPlaylist].splice(actualIndex, 1);
-        
         await savePlaylistToStorage(currentPlaylist, playlists[currentPlaylist]);
-        
         if (searchQuery !== '') {
             performSearch(searchQuery);
         }
-        
-        const updatedSongs = getCurrentDisplaySongs();
+        const updatedSongs = getDisplaySongs();
         if (updatedSongs.length === 0) {
             audio.pause();
             audio.src = '';
@@ -2389,46 +2266,33 @@ window.addEventListener('beforeinstallprompt', (e) => {
         closeSongMenu();
     }
 
-    // ----- handleFiles -----
     async function handleFiles(files) {
         if (!files || files.length === 0) return;
-        if (isProcessingFiles) {
-            console.log('Already processing files, skipping...');
-            return;
-        }
-
+        if (isProcessingFiles) return;
         isProcessingFiles = true;
         let successCount = 0;
-
         try {
             for (let file of files) {
                 if (!file.type.startsWith('audio/')) continue;
-                
                 const name = file.name.replace(/\.[^.]+$/, '');
-                
                 try {
                     const id = await addSongToDB(name, file);
                     const song = { id, name, data: file };
-                    
                     allSongs.push(song);
-                    
                     if (!playlists[currentPlaylist]) {
                         playlists[currentPlaylist] = [];
                     }
                     playlists[currentPlaylist].push(song);
                     playlists['home'].push(song);
-                    
                     successCount++;
                 } catch (e) {
                     console.error('Failed to save song:', e);
                 }
             }
-
             if (successCount > 0) {
                 const songs = getCurrentSongs();
                 const seen = new Set();
                 const unique = [];
-                
                 for (let song of songs) {
                     const key = song.name + (song.data ? song.data.size : '');
                     if (!seen.has(key)) {
@@ -2436,9 +2300,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
                         unique.push(song);
                     }
                 }
-                
                 playlists[currentPlaylist] = unique;
-                
                 const homeSongs = playlists['home'];
                 const homeSeen = new Set();
                 const homeUnique = [];
@@ -2450,23 +2312,19 @@ window.addEventListener('beforeinstallprompt', (e) => {
                     }
                 }
                 playlists['home'] = homeUnique;
-                
                 await savePlaylistToStorage(currentPlaylist, unique);
                 await savePlaylistToStorage('home', homeUnique);
-                
                 if (searchQuery !== '') {
                     performSearch(searchQuery);
                 } else {
                     renderPlaylist();
                 }
-                
                 if (getCurrentSongs().length === successCount || getCurrentSongs().length === 1) {
                     loadSong(0);
                 }
                 if (audio.src === '' && getCurrentSongs().length > 0) {
                     loadSong(0);
                 }
-                
                 await showDialog('Success', `Added ${successCount} song(s) to "${currentPlaylist === 'home' ? 'Home' : currentPlaylist}" playlist!`, 'confirm');
             }
         } finally {
@@ -2482,20 +2340,16 @@ window.addEventListener('beforeinstallprompt', (e) => {
             'confirm',
             'Playlist name...'
         );
-        
         if (!result.confirmed || !result.value) return;
-        
         const trimmed = result.value.trim();
         if (!trimmed || trimmed === 'home') {
             await showDialog('Invalid Name', 'Playlist name cannot be empty or "home".', 'confirm');
             return;
         }
-        
         if (playlists[trimmed]) {
             await showDialog('Already Exists', `A playlist named "${trimmed}" already exists.`, 'confirm');
             return;
         }
-        
         playlists[trimmed] = [];
         await savePlaylistToStorage(trimmed, []);
         updateDropdown();
@@ -2507,12 +2361,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
         try {
             await openDB();
             await loadAllData();
-            
-            // Clear queue on app start
             queue = [];
-            queueIndex = 0;
-            isQueueMode = false;
-            
             if (allSongs.length === 0) {
                 const sampleRate = 8000;
                 const duration = 2;
@@ -2530,27 +2379,23 @@ window.addEventListener('beforeinstallprompt', (e) => {
                     view.setInt16(i * 2, val * 0x7FFF, true);
                 }
                 const blob = new Blob([buffer], { type: 'audio/wav' });
-                
                 const id = await addSongToDB('Demo Song', blob);
                 const song = { id, name: 'Demo Song', data: blob };
                 allSongs.push(song);
                 playlists['home'].push(song);
             }
-            
             renderPlaylist();
             updateDropdown();
-            
             if (getCurrentSongs().length > 0) {
                 loadSong(0);
             }
-            
             setupSwipeHandling();
         } catch (e) {
             console.error('Init error:', e);
         }
     }
 
-    // ----- Event listeners -----
+    // ----- EVENT LISTENERS -----
     playBtn.addEventListener('click', function() {
         if (getCurrentSongs().length === 0) {
             fileInput.click();
@@ -2567,37 +2412,11 @@ window.addEventListener('beforeinstallprompt', (e) => {
     });
 
     nextBtn.addEventListener('click', function() {
-        const songs = getCurrentDisplaySongs();
-        if (songs.length === 0) return;
-        
-        const nextIdx = getNextSongIndex();
-        if (nextIdx >= 0) {
-            playSongAtIndex(nextIdx);
-        } else if (nextIdx === -2) {
-            // Queue mode - play next queue song
-            const nextQueueIdx = queueIndex + 1;
-            if (nextQueueIdx < queue.length) {
-                playQueueSong(nextQueueIdx);
-            } else {
-                isQueueMode = false;
-                queue = [];
-                queueIndex = 0;
-                renderQueue();
-                if (getCurrentSongs().length > 0) {
-                    loadSong(currentIndex);
-                }
-            }
-        }
+        playNext();
     });
 
     prevBtn.addEventListener('click', function() {
-        const songs = getCurrentDisplaySongs();
-        if (songs.length === 0) return;
-        
-        const prevIdx = getPrevSongIndex();
-        if (prevIdx >= 0) {
-            playSongAtIndex(prevIdx);
-        }
+        playPrev();
     });
 
     shuffleBtn.addEventListener('click', function() {
@@ -2619,50 +2438,12 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
     audio.addEventListener('timeupdate', updateProgress);
     audio.addEventListener('ended', function() {
-        const songs = getCurrentDisplaySongs();
-        if (songs.length === 0) {
-            updatePlayButton(false);
-            return;
-        }
-        
         if (repeatMode === 'one') {
             audio.currentTime = 0;
             audio.play().catch(() => {});
             return;
         }
-        
-        // Check if in queue mode
-        if (isQueueMode && queue.length > 0) {
-            const nextIdx = queueIndex + 1;
-            if (nextIdx < queue.length) {
-                playQueueSong(nextIdx);
-                return;
-            } else {
-                // Queue ended
-                isQueueMode = false;
-                queue = [];
-                queueIndex = 0;
-                renderQueue();
-                if (getCurrentSongs().length > 0) {
-                    loadSong(currentIndex);
-                    audio.play().catch(() => {});
-                    updatePlayButton(true);
-                    return;
-                }
-            }
-        }
-        
-        const nextIdx = getNextSongIndex();
-        if (nextIdx >= 0) {
-            playSongAtIndex(nextIdx);
-        } else if (repeatMode === 'all') {
-            currentIndex = 0;
-            loadSong(0);
-            audio.play().catch(() => {});
-            updatePlayButton(true);
-        } else {
-            updatePlayButton(false);
-        }
+        playNext();
     });
     audio.addEventListener('play', () => updatePlayButton(true));
     audio.addEventListener('pause', () => updatePlayButton(false));
@@ -2675,13 +2456,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
     fileInput.addEventListener('change', function(e) {
         e.stopPropagation();
         e.preventDefault();
-        
         if (isProcessingFiles) {
-            console.log('Already processing, ignoring this change event');
             this.value = '';
             return;
         }
-        
         if (this.files && this.files.length > 0) {
             const files = Array.from(this.files);
             this.value = '';
@@ -2737,7 +2515,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
         }
     });
 
-    // ----- Double tap to play -----
     songListEl.addEventListener('click', function(e) {
         const menuBtn = e.target.closest('.song-btn');
         if (menuBtn) {
@@ -2748,25 +2525,23 @@ window.addEventListener('beforeinstallprompt', (e) => {
             }
             return;
         }
-
         const li = e.target.closest('li');
-        if (!li || li.classList.contains('empty-playlist')) return;
+        if (!li) return;
         const idx = li.dataset.index;
-        if (idx === undefined) return;
-        
-        if (clickTimeout) {
-            clearTimeout(clickTimeout);
-            clickTimeout = null;
+        if (idx !== undefined) {
             const index = parseInt(idx, 10);
-            if (!isNaN(index) && index >= 0 && index < getCurrentDisplaySongs().length) {
-                playSongAtIndex(index);
+            if (!isNaN(index) && index >= 0 && index < getDisplaySongs().length) {
+                if (clickTimeout) {
+                    clearTimeout(clickTimeout);
+                    clickTimeout = null;
+                    playSongAtIndex(index);
+                    return;
+                }
+                clickTimeout = setTimeout(() => {
+                    clickTimeout = null;
+                }, 300);
             }
-            return;
         }
-        
-        clickTimeout = setTimeout(() => {
-            clickTimeout = null;
-        }, 300);
     });
 
     songMenuOverlay.addEventListener('click', function(e) {
