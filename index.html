@@ -1111,7 +1111,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
             // Update metadata
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: songName || 'note music player',
-                artist: 'note player',
+                artist: 'Now Playing,
                 album: currentPlaylist === 'home' ? 'Home' : currentPlaylist
             });
             
