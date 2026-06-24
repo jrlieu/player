@@ -1105,6 +1105,52 @@ window.addEventListener('beforeinstallprompt', (e) => {
     const dialogCancel = document.getElementById('dialogCancel');
     const dialogConfirm = document.getElementById('dialogConfirm');
 
+    // ----- Media Session API -----
+    function updateMediaSession(songName, isPlayingState) {
+        if ('mediaSession' in navigator) {
+            // Update metadata
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: songName || 'note music player',
+                artist: 'note player',
+                album: currentPlaylist === 'home' ? 'Home' : currentPlaylist
+            });
+            
+            // Set action handlers
+            navigator.mediaSession.setActionHandler('play', () => {
+                audio.play();
+                updatePlayButton(true);
+            });
+            
+            navigator.mediaSession.setActionHandler('pause', () => {
+                audio.pause();
+                updatePlayButton(false);
+            });
+            
+            navigator.mediaSession.setActionHandler('previoustrack', () => {
+                const songs = getCurrentSongs();
+                if (songs.length > 0) {
+                    const prevIdx = getPrevSongIndex();
+                    if (prevIdx >= 0) {
+                        playSongAtIndex(prevIdx);
+                    }
+                }
+            });
+            
+            navigator.mediaSession.setActionHandler('nexttrack', () => {
+                const songs = getCurrentSongs();
+                if (songs.length > 0) {
+                    const nextIdx = getNextSongIndex();
+                    if (nextIdx >= 0) {
+                        playSongAtIndex(nextIdx);
+                    }
+                }
+            });
+            
+            // Update playback state
+            navigator.mediaSession.playbackState = isPlayingState ? 'playing' : 'paused';
+        }
+    }
+
     // ----- Custom Dialog -----
     function showDialog(title, message, type, inputPlaceholder = '') {
         return new Promise((resolve) => {
@@ -1415,6 +1461,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
             updateNowPlayingInfo(null);
             updateTimeDisplay(0, 0);
             progressFill.style.width = '0%';
+            // Update media session
+            updateMediaSession(null, false);
             return;
         }
         if (index < 0) index = songs.length - 1;
@@ -1430,6 +1478,12 @@ window.addEventListener('beforeinstallprompt', (e) => {
         updateNowPlayingInfo(item);
         updateTimeDisplay(0, audio.duration || 0);
         progressFill.style.width = '0%';
+        
+        // Update media session with song info
+        if (item && item.name) {
+            updateMediaSession(item.name, isPlaying);
+        }
+        
         renderPlaylist();
     }
 
@@ -1478,6 +1532,11 @@ window.addEventListener('beforeinstallprompt', (e) => {
             icon.className = 'fas fa-pause';
         } else {
             icon.className = 'fas fa-play';
+        }
+        
+        // Update media session playback state
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
         }
     }
 
@@ -1561,6 +1620,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
             updateNowPlayingInfo(null);
             updateTimeDisplay(0, 0);
             progressFill.style.width = '0%';
+            updateMediaSession(null, false);
         }
         closeDropdown();
     }
@@ -1692,6 +1752,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
                 updateNowPlayingInfo(null);
                 updateTimeDisplay(0, 0);
                 progressFill.style.width = '0%';
+                updateMediaSession(null, false);
             }
             closeDropdown();
         } catch (e) {
@@ -1785,6 +1846,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
             updateNowPlayingInfo(null);
             updateTimeDisplay(0, 0);
             progressFill.style.width = '0%';
+            updateMediaSession(null, false);
         } else if (index < currentIndex) {
             currentIndex--;
         } else if (index === currentIndex) {
